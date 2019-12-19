@@ -6,7 +6,7 @@
  - Python 2.7
    - `pip2` (do zaintslowania biblioteki)
    - biblioteka `pwntools`
- - `radare2` (nie jest wymagane)
+ - `radare2`
 
 
 ## Plan tutoriala
@@ -15,9 +15,11 @@
     1. Instalacja narzędzi
     2. Stowrzenie podatnej aplikacji
 2. Analiza aplikacji za pomocą narzędzia `radare2`
-    1. Stworzenie pliku z danymi wejściowymi
+    1. Uruchomienie `radare2`
     2. Analiza podatnej funkcji
-    3. Debuggowanie aplikacji
+    3. Stworzenie pliku z danymi wejściowymi
+    4. Debuggowanie aplikacji
+    5. Analiza eksploitu
 3. Wykorzystanie biblioteki `pwntools` i eksploitacja aplikacji za pomocą Pythona
     1. Uszkodznie (crash) aplikacji
     2. Eksploitacja i shellcode
@@ -60,12 +62,69 @@ void ask_for_name()
 
 int main()
 {
-    int v;
-    printf("STACK IS HERE => %p\n", &v);
     ask_for_name();
     return 0;
 }
 ```
-Podatność spowodowana jest użyciem funckji `gets(char* str)`, która wczyta do bufora `char* name` dowolną ilość danych.
+
+Do skompliowania aplikacji używamy polecenia `gcc <source-file> -std=c99 -fno-stack-protector -z execstack -w -o <output-file>`. 
+Te argumenty są potrzebne, by stos był wykonywalny (ang. executable).
+Dodatkowo, , wyłączamy losowe adresowanie przestrzeni wirtualnej, żeby adres stosu nie zmieniał się przy każdym wykonaniu programu. 
+`echo 0 > /proc/sys/kernel/randomize_va_space` - polecenie musi zostać wykonane z uprawnieniami *root*.
+
+Podatność znajduje się w funkcji `void ask_for_name()` i spowodowana jest użyciem funckji `gets(char* str)`, która wczyta do bufora `char* name` dowolną ilość danych.
 Następnie do sprawdzenia długości wprowadzonych danych wykorzystana jest funkcja `strlen (const char* str)`, 
-którą bardzo łatwo oszukać, gdyż używa ona znaku _null_ (0x00 w ascii) do sprawdzenia długości stringa.
+którą bardzo łatwo oszukać, gdyż używa ona znaku _null_ (0x00 w ASCII) do sprawdzenia długości stringa.
+
+## 2. Analiza aplikacji za pomocą narzędzia _radare2_
+
+### Uruchomienie _radare2_
+
+W celu rozpoczęcia analizy programu uruchamiamy _radare2_ poleceniem `radare2 <file>` lub krócej `r2 <file>`. 
+Analizujemy wszytko wpsując `aaa`. 
+
+![](images/radare2_begin.png)
+
+Jeśli chcecmy uzyskać więcej informacji o danym poleceniu lub możliwych poleceniach wpisujemy `?`. 
+Wypisujemy wszytkie funkcje - `alf` (_analyze_ -> _functions_ -> _list_):
+
+![](images/radare2_functions.png)
+
+Widzimy, że _radare2_ znalazło m.in. funkcje `main` i `ask_for_name`. Program rozpoczyna wykonanie w `entry0`.
+Widać również funkcje z biblioteki standardowej takie jak `put`, `gets`, `printf`, itp.
+
+Żeby przejść do danej funkcji wpisujemy `s <function>`, np. `s sym.ask_for_name`.
+
+![](images/radare2_seek.png)
+
+Jak widać adres, w którym się znajdujemy zmienił się i jesteśmy teraz na początku funkcji `ask_for_name`.
+
+### Analiza podatnej funkcji
+
+Żeby wyświetlić zdeassemblowany kod funckji wpisujemy `pdf`.
+
+![](images/radare2_asm_ask_for_name.png)
+
+_radare2_ bardzo ułatwia nam czytanie kodu. Pokazały się stringi, które napisaliśmy w C,
+jak również wykonania funkcji z biblioteki, a nawet przyjmowane przez nie argumenty oraz zwracane typy danych.
+Na samej górze widzimy, że SP (stack pointer) przesuwany jest o 16 byteów (4 z nich to poprzedni adres ramki, 
+a 12 to zadeklarowany przez nas bufor `char* name`). 
+Pod adresem `0x000011b0` widać porównanie wartości zwróconej przez funckje `strlen` oraz stałej `0x0c` czyli 12. 
+Kolejną instrukcją jest warunkowe polecenie jump, jest to nasz if. 
+Wpisując `VV` możemy przejść w tryb wyświetlający schemat blokowy naszej funckji.
+Kilkając `p` możemy zmieniać sposób wyświetlania.
+
+![](images/radare2_flow_graph.png)
+
+Skoro już mniej więcej rozumiemy działanie funckji w assemblerze, możemy przejść do jej uruchomienia. Prześledzimy wtedy zachowanie rejestrów oraz stosu i spróbujemy wykorzytsać znalezioną podatność.
+
+### Stworzenie pliku z danymi wejściowymi
+
+Nasza apliakcja pobiera dane z wejścia standardowego _stdin_, 
+żeby przekazać te dane z poziomu programu _radare2_ musimy umieścić przykładowe dane w pliku. `echo "Krzysztof" > stdin.bin`. 
+Następnie należy utowrzyć plik konfiguracyjny _rarun2_ o dowolnej nazwie, np. `profile.rr2`.
+
+```
+#!/usr/bin/rarun2
+stdin=./stdin.bin
+```
