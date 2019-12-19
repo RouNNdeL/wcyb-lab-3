@@ -14,12 +14,12 @@
 1. Konfiguracja środowiska 
     1. Instalacja narzędzi
     2. Stowrzenie podatnej aplikacji
-2. Analiza aplikacji za pomocą narzędzia `radare2`
+2. Analiza i eksploitacja aplikacji za pomocą narzędzia `radare2`
     1. Uruchomienie `radare2`
     2. Analiza podatnej funkcji
     3. Stworzenie pliku z danymi wejściowymi
     4. Debuggowanie aplikacji
-    5. Analiza eksploitu
+    5. Eksploitacja 
 3. Wykorzystanie biblioteki `pwntools` i eksploitacja aplikacji za pomocą Pythona
     1. Uszkodznie (crash) aplikacji
     2. Eksploitacja i shellcode
