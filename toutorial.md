@@ -69,7 +69,7 @@ int main()
 
 Do skompliowania aplikacji używamy polecenia `gcc <source-file> -std=c99 -fno-stack-protector -z execstack -w -o <output-file>`. 
 Te argumenty są potrzebne, by stos był wykonywalny (ang. executable).
-Dodatkowo, , wyłączamy losowe adresowanie przestrzeni wirtualnej, żeby adres stosu nie zmieniał się przy każdym wykonaniu programu. 
+Dodatkowo, wyłączamy losowe adresowanie przestrzeni wirtualnej, żeby adres stosu nie zmieniał się przy każdym wykonaniu programu. 
 `echo 0 > /proc/sys/kernel/randomize_va_space` - polecenie musi zostać wykonane z uprawnieniami *root*.
 
 Podatność znajduje się w funkcji `void ask_for_name()` i spowodowana jest użyciem funckji `gets(char* str)`, która wczyta do bufora `char* name` dowolną ilość danych.
@@ -128,3 +128,37 @@ Następnie należy utowrzyć plik konfiguracyjny _rarun2_ o dowolnej nazwie, np.
 #!/usr/bin/rarun2
 stdin=./stdin.bin
 ```
+
+### Debuggowanie aplikacji
+
+W celu rozpoczęcia debugowania musimy zrestartować _rarun2_ w trybie debug. W tym celu należy zamknąć program, `q` lub `Ctrl+D`, 
+a następnie uruchomić go z flagą `-d` - `r2 -e dbg.profile=<rarun2-file> -d <file>`.
+Zauważmy, że w trybie debugowania zmieniły się adresy funckji, o czym zostaliśmy poinformowani przy uruchomieniu.
+
+![](images/radare2_begin_debug.png)
+
+Ustawiamy breakpoint (pułapkę) na samym początku funkcji `ask_for_name` - `db sym.ask_for_name`.
+
+![](images/radare2_d_ask_for_name.png)
+
+Widzimy, że przy pierwszej instrukcji pojawiło się **b** oznaczające ustawiony pod tym adresem breakpoint. 
+Wznawiamy wykonanie programu używając polecenia `dc`, a następnie przechodzimy do interaktywnego trybu debugowania wpisując `V!`.
+Teraz po za kodem assemblera widzimy również zawartość rejestrów oraz stosu. 
+
+![](images/radare2_debugging.png)
+
+Za pomocą `S` (`Shift+s`) przechodzimy do kolejnych instrukcji. 
+Pojawi się wskaźnik `rip` pokazujący gdzie w danym momencie się znajdujemy.
+
+Bezpośrednio po wykonaniu funckji `gets` dane z naszego pliku zostaną wczytane na stos.
+
+![](images/radare2_d_after_gets1.png) ![](images/radare2_d_after_gets2.png)
+
+Nasze dane nie były dłuższe niż 12 znaków, więc zmieściły się na stosie i spodziewamy się zaakceptowania danych przez program. 
+Kontynuujemy debugowanie i faktycznie, program 'skacze' do fragmentu dotyczącego wyświetlenia poprawnej wiadomości. 
+
+![](images/radare2_d_after_jmp.png)
+
+Zmiana danych na dłuższe niż 12 znaków, np. `Krzysztof Zdulski` 
+i analiza zachowania programu pozostawiona jest dla czytelnika w ramach ćwiczenia pracy z _radare2_.
+
