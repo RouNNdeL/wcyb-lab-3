@@ -13,7 +13,7 @@
 
 1. Konfiguracja środowiska 
     1. Instalacja narzędzi
-    2. Stowrzenie podatnej aplikacji
+    2. Stworzenie podatnej aplikacji
 2. Analiza i eksploitacja aplikacji za pomocą narzędzia `radare2`
     1. Uruchomienie `radare2`
     2. Analiza podatnej funkcji
@@ -37,7 +37,7 @@ Jeśli instalacja przebiegła pomyślnie po wpisaniu polecenia `pip` powiniśmy 
 ![pip usage](images/pip_usage.png)
 
 `gcc` powinno być domyślnie zainstalowane na większości dystrybucji Linuxa, 
-jednak jeśli nie jest instalujemy pakiet _build-essentials_: `sudo apt install build-essential`.
+jednak jeśli nie jest, instalujemy pakiet _build-essentials_: `sudo apt install build-essential`.
 Podobnie _gdb_: `sudo apt install gdb`.
 
 ### Stworzenie podatnej aplikacji
@@ -70,7 +70,7 @@ int main()
 Do skompliowania aplikacji używamy polecenia `gcc <source-file> -std=c99 -fno-stack-protector -z execstack -w -o <output-file>`. 
 Te argumenty są potrzebne, by stos był wykonywalny (ang. executable).
 Dodatkowo, wyłączamy losowe adresowanie przestrzeni wirtualnej, żeby adres stosu nie zmieniał się przy każdym wykonaniu programu. 
-`echo 0 > /proc/sys/kernel/randomize_va_space` - polecenie musi zostać wykonane z uprawnieniami *root*.
+W tym celu wykonujemy polecenie `echo 0 > /proc/sys/kernel/randomize_va_space` - polecenie musi zostać wykonane z uprawnieniami *root*.
 
 Podatność znajduje się w funkcji `void ask_for_name()` i spowodowana jest użyciem funckji `gets(char* str)`, która wczyta do bufora `char* name` dowolną ilość danych.
 Następnie do sprawdzenia długości wprowadzonych danych wykorzystana jest funkcja `strlen (const char* str)`, 
@@ -81,7 +81,7 @@ którą bardzo łatwo oszukać, gdyż używa ona znaku _null_ (0x00 w ASCII) do 
 ### Uruchomienie _radare2_
 
 W celu rozpoczęcia analizy programu uruchamiamy _radare2_ poleceniem `radare2 <file>` lub krócej `r2 <file>`. 
-Analizujemy wszytko wpsując `aaa`. 
+Analizujemy wszystkie elementy pliku wpisując polecenie `aaa`. 
 
 ![](images/radare2_begin.png)
 
@@ -108,8 +108,8 @@ Jak widać adres, w którym się znajdujemy zmienił się i jesteśmy teraz na p
 _radare2_ bardzo ułatwia nam czytanie kodu. Pokazały się stringi, które napisaliśmy w C,
 jak również wykonania funkcji z biblioteki, a nawet przyjmowane przez nie argumenty oraz zwracane typy danych.
 Na samej górze widzimy, że SP (stack pointer) przesuwany jest o 16 byteów. 
-Pod adresem `0x000011b0` widać porównanie wartości zwróconej przez funckje `strlen` oraz stałej `0x0c` czyli 12. 
-Kolejną instrukcją jest warunkowe polecenie jump, jest to nasz if. 
+Pod adresem `0x000011b0` widać porównanie wartości zwróconej przez funckje `strlen` oraz stałej `0x0c` czyli 12 w systemie dziesiętnym. 
+Kolejną instrukcją jest warunkowa instrukacja jump, która w połączeniu z poprzednią instrukcją `cmp` jest odpowiednikiem _ifa_ w C. 
 Wpisując `VV` możemy przejść w tryb wyświetlający schemat blokowy naszej funckji.
 Kilkając `p` możemy zmieniać sposób wyświetlania.
 
@@ -142,7 +142,7 @@ Ustawiamy breakpoint (pułapkę) na samym początku funkcji `ask_for_name` - `db
 
 Widzimy, że przy pierwszej instrukcji pojawiło się **b** oznaczające ustawiony pod tym adresem breakpoint. 
 Wznawiamy wykonanie programu używając polecenia `dc`, a następnie przechodzimy do interaktywnego trybu debugowania wpisując `V!`.
-Teraz po za kodem assemblera widzimy również zawartość rejestrów oraz stosu. 
+Teraz poza kodem assemblera widzimy również zawartość rejestrów oraz stosu. 
 
 ![](images/radare2_debugging.png)
 
@@ -187,7 +187,7 @@ Wykonujemy kolejny krok i widzimy, że to `rbp` została wczytana wartość `0x2
 
 Po odwróceniu i zapisaniu w ASCII odpowiada to "is is a ", czyli jesteśmy w stanie zmienić wartość rejestru `rbp`,
 a zatem i `rip`, ponieważ instrukacja `ret` wczyta adres za `rbp` to rejestru `rip`.
-Ponieważ wyłaczyliśmy losowe adresy przestrzeni wirtualnej wiemy, że adres stosu zawsze bedzie taki sam, 
+Ponieważ wyłączyliśmy losowe adresy przestrzeni wirtualnej wiemy, że adres stosu zawsze bedzie taki sam, 
 w naszym przypadku `0x7fffffffe1e0`.
 Wiemy, że jesteśmy w stanie manipulować rejestrem `rbp` oraz znajdującym się za nim rejestrem `rip`. 
 Wystraczy więc ustawić `rip` na adres stosu, żeby móc wykonać nasz własny kod.
