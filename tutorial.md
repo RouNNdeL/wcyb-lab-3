@@ -262,4 +262,4 @@ Eksploitacja binarna choć bardzo potężna zwykle nie jest prosta.
 W normalnym środowisku nie będziemy znali adresu stosu (będzie on losowy, a program przecież nam go nie wyświetli).
 Pomimo tych wszystkich zabezpieczeń i trudności co jakiś czas odkrywane są nowe podatności i exploity do nich.
 
-Tutorial napisany przez Krzysztofa Zdulskiego w ramach przedmiotu WCYB
+**Tutorial napisany przez Krzysztofa Zdulskiego w ramach przedmiotu WCYB.**
