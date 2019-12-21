@@ -252,3 +252,14 @@ Powyżej widzimy, że nasz shellcode został poprawnie umieszczony na stosie.
 ![](images/radare2_exploit_etc_passwd_wrong_rip.png)
 
 Ale skoczyliśmy do złego adresu. Możemy dodać do naszego payloadu instrukcje NOP (`0x90`) przed wykonaniem shellcode'u lub zweryfikować czy nasz adres powrotu jest poprawnie zamieniany.
+
+## Podsumowanie
+
+Udało nam się wykorzystać podatność programu i uruchomić w ramach tego programu nasz własny kod.
+Zauważymy jednak, że żeby tego dokonać musieliśmy wyłączyćstos losowe przydzielanie adresów w przestrzeni wirtualnej
+oraz skompilować program z różnymi flagami (m.in. wykonywalny stos). 
+Eksploitacja binarna choć bardzo potężna zwykle nie jest prosta.
+W normalnym środowisku nie będziemy znali adresu stosu (będzie on losowy, a program przecież nam go nie wyświetli).
+Pomimo tych wszystkich zabezpieczeń i trudności co jakiś czas odkrywane są nowe podatności i exploity do nich.
+
+Tutorial napisany przez Krzysztofa Zdulskiego w ramach przedmiotu WCYB
